@@ -44,24 +44,31 @@ Create or edit the Config.h file in the src directory of your project, and defin
 #define WIFI_PASSWORD "your_wifi_password"
 
 // GPIO pin assignments
-#define POWER_BUTTON_PIN 32
-#define PUMP_BUTTON_PIN 33
-#define VEGETABLE_BUTTON_PIN 25
-#define FLOWER_BUTTON_PIN 26
+#define POWER_BUTTON_PIN 23
+#define PUMP_BUTTON_PIN 22
+#define VEGETABLE_BUTTON_PIN 17
+#define FLOWER_BUTTON_PIN 16
 
 #define SHIFT_REGISTER_DATA_PIN 14
-#define SHIFT_REGISTER_CLOCK_PIN 27
+#define SHIFT_REGISTER_CLOCK_PIN 13
 #define SHIFT_REGISTER_LATCH_PIN 12
 
-#define POWER_DIODE_PIN 16
-#define WIFI_DIODE_PIN 17
-#define PUMP_DIODE_PIN 18
-#define VEGETABLE_DIODE_PIN 19
-#define FLOWER_DIODE_PIN 21
+#define POWER_DIODE_PIN 0
+#define WIFI_DIODE_PIN 1
+#define PUMP_MOTOR_PIN 2
+#define PUMP_DIODE_PIN 3
+#define VEGETABLE_DIODE_PIN 4
+#define FLOWER_DIODE_PIN 5
 
-#define BLUE_PWM_PIN 22
-#define RED_PWM_PIN 23
-#define GREEN_PWM_PIN 5
+#define BLUE_PWM_PIN 25
+#define RED_PWM_PIN 26
+#define GREEN_PWM_PIN 27
+
+#define WIFI_BLINK_COUNT 3
+#define LOOP_DELAY 10
+#define VEGETABLE_ON 0
+#define FLOWER_ON 1
+#define STRIP_OFF 2
 
 // Add any other configuration variables here
 
