@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2024-05-18
+### Added
+- **PumpController**: Added to manage the motor pump via the shift register.
+- **AppState**: Added motor pump state management methods.
+
+### Changed
+- **handlePumpButtonClick**: Updated to directly toggle motor pump state.
+- **PumpController**: Enhanced to include state logging and direct control via `setPinState`.
+
 ## [1.0.0] - 2024-04-18
 ### Added
 - **LEDController**: Comprehensive control over individual and groups of LEDs.
