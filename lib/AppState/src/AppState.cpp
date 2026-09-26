@@ -8,7 +8,10 @@
 /**
  * @brief Initializes state variables to false.
  */
-AppState::AppState() : powerOn(false), wifiLedDiodeState(false), pumpLedDiodeState(false), flowerLedDiodeState(false), ledStripState(false) {}
+AppState::AppState() 
+    : powerOn(false), wifiLedDiodeState(false), pumpLedDiodeState(false),
+      vegetableLedDiodeState(false), flowerLedDiodeState(false), 
+      ledStripState(false), motorPumpState(false) {}
 
 /**
  * @brief Sets the power state.
@@ -145,4 +148,20 @@ void AppState::setLedStripState(bool state) {
  */
 bool AppState::isLedStripOn() const {
     return ledStripState;
+}
+
+/**
+ * @brief Sets the state of the motor pump.
+ * @param state The new state to set.
+ */
+void AppState::setMotorPumpState(bool state) {
+    motorPumpState = state;
+}
+
+/**
+ * @brief Retrieves the current state of the motor pump.
+ * @return The current state of the motor pump.
+ */
+bool AppState::getMotorPumpState() const {
+    return motorPumpState;
 }

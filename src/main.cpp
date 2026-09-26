@@ -12,6 +12,7 @@
 #include "ButtonManager.hpp"
 #include "LEDController.hpp"
 #include "ShiftRegister.hpp"
+#include "PumpController.hpp"
 #include "DebugLogger.hpp"
 
 AppState appState;
@@ -40,6 +41,9 @@ LEDController ledController(
     RED_PWM_PIN, 
     GREEN_PWM_PIN
 );
+
+// Create an instance of the pump controller
+PumpController pumpController(shiftRegister);
 
 // Button identifiers for readability.
 enum Button { Power, Pump, Vegetable, Flower };
@@ -81,6 +85,7 @@ void setup() {
     appState.setVegetableLedDiodeState(false);
     appState.setFlowerLedDiodeState(false);
     appState.setLedStripState(false);
+    appState.setMotorPumpState(false);
 
     DebugLogger::info("System initialized and ready.");
 }
@@ -118,17 +123,40 @@ void handlePowerButtonClick() {
         appState.setVegetableLedDiodeState(false);
         appState.setFlowerLedDiodeState(false);
         appState.setLedStripState(false);
+
+         // Turn off the motor pump via PumpController
+        pumpController.setMotorPumpState(false);
+        // Store the state in AppState
+        appState.setMotorPumpState(false);
+
+        // Log the motor pump state
+        pumpController.getMotorPumpState();
+
     }
 }
 
 /**
  * @brief Handles pump button click events.
  * 
- * Toggles the state of the pump LED when the pump button is clicked.
+ * Toggles the state of the pump LED and motor pump when the pump button is clicked.
  */
 void handlePumpButtonClick() {
     if (appState.isPowerOn()) {
+        // Toggle the pump LED state
         ledController.toggleLedDiodeState(DiodeType::Pump);
+
+        // Directly toggle the motor pump state
+        bool currentMotorPumpState = pumpController.getMotorPumpState();
+        bool newMotorPumpState = !currentMotorPumpState;
+
+        // Update the motor pump state via PumpController
+        pumpController.setMotorPumpState(newMotorPumpState);
+
+        // Store the state in AppState
+        appState.setMotorPumpState(newMotorPumpState);
+
+        // Log the motor pump state
+        DebugLogger::info("Pump button clicked. New motor pump state: " + String(newMotorPumpState ? "ON" : "OFF"));
     }
 }
 

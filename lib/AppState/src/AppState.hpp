@@ -109,13 +109,28 @@ public:
      */
     bool getStateForLedDiode(DiodeType diode) const;
 
+    // Motor pump state methods
+
+    /**
+     * @brief Sets the state of the motor pump.
+     * @param state The new state to set.
+     */
+    void setMotorPumpState(bool state);
+
+    /**
+     * @brief Retrieves the current state of the motor pump.
+     * @return The current state of the motor pump.
+     */
+    bool getMotorPumpState() const;
+
 private:
-    bool powerOn;
-    bool wifiLedDiodeState;
-    bool pumpLedDiodeState;
-    bool vegetableLedDiodeState;
-    bool flowerLedDiodeState;
-    bool ledStripState;
+    bool powerOn; ///< Power state
+    bool wifiLedDiodeState; ///< WiFi LED diode state
+    bool pumpLedDiodeState; ///< Pump LED diode state
+    bool vegetableLedDiodeState; ///< Vegetable LED diode state
+    bool flowerLedDiodeState; ///< Flower LED diode state
+    bool ledStripState; ///< LED strip state
+    bool motorPumpState; ///< Motor pump state
 };
 
 #endif /* AppState_hpp */
