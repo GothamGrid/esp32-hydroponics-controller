@@ -1,140 +1,152 @@
-// LEDController.cpp
 #include "LEDController.hpp"
 #include "DebugLogger.hpp"
-#include "WiFiManager.hpp"
 
 /**
- * Constructs a LEDController to manage LED diodes and strips.
- * 
- * @param shiftRegister Pointer to a ShiftRegister object for controlling LEDs via a shift register.
- * @param powerLedDiodePin Pin number for the power LED diode.
- * @param wifiLedDiodePin Pin number for the WiFi LED diode.
- * @param pumpLedDiodePin Pin number for the pump LED diode.
- * @param vegetableLedDiodePin Pin number for the vegetable LED diode.
- * @param flowerLedDiodePin Pin number for the flower LED diode.
- * @param bluePWMPin PWM pin for controlling blue color on the LED strip.
- * @param redPWMPin PWM pin for controlling red color on the LED strip.
- * @param greenPWMPin PWM pin for controlling green color on the LED strip.
+ * Constructs an LEDController.
  */
 LEDController::LEDController(
-    ShiftRegister* shiftRegister, 
-    uint8_t powerLedDiodePin, 
-    uint8_t wifiLedDiodePin, 
-    uint8_t pumpLedDiodePin, 
-    uint8_t vegetableLedDiodePin, 
-    uint8_t flowerLedDiodePin, 
-    uint8_t bluePWMPin, 
-    uint8_t redPWMPin, 
-    uint8_t greenPWMPin): 
-        shiftRegister(shiftRegister), 
-        powerLedDiodePin(powerLedDiodePin),
-        wifiLedDiodePin(wifiLedDiodePin), 
-        pumpLedDiodePin(pumpLedDiodePin), 
-        vegetableLedDiodePin(vegetableLedDiodePin), 
-        flowerLedDiodePin(flowerLedDiodePin), 
-        bluePWMPin(bluePWMPin), 
-        redPWMPin(redPWMPin), 
-        greenPWMPin(greenPWMPin), 
-        wifiManager(nullptr), 
-        ledBlinkState(false), 
-        lastBlinkMillis(0), 
-        wifiBlinkCounter(0), 
-        blinkInterval(200){ 
-            ledcSetup(0, 5000, 8);
-            ledcSetup(1, 5000, 8);
-            ledcSetup(2, 5000, 8);
-            ledcAttachPin(bluePWMPin, 0);
-            ledcAttachPin(redPWMPin, 1);
-            ledcAttachPin(greenPWMPin, 2);
+    ShiftRegister* shiftRegister,
+    uint8_t powerLedDiodePin,
+    uint8_t wifiLedDiodePin,
+    uint8_t pumpLedDiodePin,
+    uint8_t vegetableLedDiodePin,
+    uint8_t flowerLedDiodePin,
+    uint8_t bluePWMPin,
+    uint8_t redPWMPin,
+    uint8_t greenPWMPin
+) :
+    shiftRegister(shiftRegister),
+    powerLedDiodePin(powerLedDiodePin),
+    wifiLedDiodePin(wifiLedDiodePin),
+    pumpLedDiodePin(pumpLedDiodePin),
+    vegetableLedDiodePin(vegetableLedDiodePin),
+    flowerLedDiodePin(flowerLedDiodePin),
+    bluePWMPin(bluePWMPin),
+    redPWMPin(redPWMPin),
+    greenPWMPin(greenPWMPin),
+
+    // ★ WiFi blink-sequencer initialization.
+    wifiBlinkActive(false),
+    wifiBlinkState(false),
+    wifiBlinkTransitionsRemaining(0),
+    lastWiFiBlinkMillis(0) {
+
+    ledcSetup(0, 5000, 8);
+    ledcSetup(1, 5000, 8);
+    ledcSetup(2, 5000, 8);
+
+    ledcAttachPin(bluePWMPin, 0);
+    ledcAttachPin(redPWMPin, 1);
+    ledcAttachPin(greenPWMPin, 2);
 }
 
 /**
- * Sets the WiFiManager to enable LED control based on WiFi connection status.
- * 
- * @param manager Reference to a WiFiManager object.
+ * Starts a complete non-blocking WiFi LED blink sequence.
+ *
+ * One blink consists of one ON phase and one OFF phase.
  */
-void LEDController::setWiFiManager(WiFiManager& manager) {
-    wifiManager = &manager;
+void LEDController::startWiFiBlink(uint8_t count) {
+    if (count == 0) {
+        cancelWiFiBlink();
+        return;
+    }
+
+    wifiBlinkActive = true;
+    wifiBlinkState = true;
+
+    // ★ The first ON state is applied immediately. Every remaining state
+    // ★ change is performed later by update().
+    wifiBlinkTransitionsRemaining =
+        static_cast<uint16_t>(count) * 2U - 1U;
+
+    lastWiFiBlinkMillis = millis();
+
+    shiftRegister->setPinState(wifiLedDiodePin, HIGH);
+    shiftRegister->write();
 }
 
 /**
- * Updates the state of the WiFi LED based on connection status.
- * 
- * @param isConnected Indicates whether the WiFi is connected.
+ * Advances the active WiFi LED blink sequence.
  */
-void LEDController::updateWiFiLedDiodeStatus(bool isConnected) {
-    if (isConnected) {
-        // WiFi is connected
-        shiftRegister->setPinState(wifiLedDiodePin, HIGH);
+void LEDController::update() {
+    if (!wifiBlinkActive) {
+        return;
+    }
+
+    const unsigned long currentTime = millis();
+
+    if (currentTime - lastWiFiBlinkMillis < wifiBlinkInterval) {
+        return;
+    }
+
+    lastWiFiBlinkMillis = currentTime;
+    wifiBlinkState = !wifiBlinkState;
+
+    shiftRegister->setPinState(
+        wifiLedDiodePin,
+        wifiBlinkState ? HIGH : LOW
+    );
+    shiftRegister->write();
+
+    if (wifiBlinkTransitionsRemaining > 0) {
+        --wifiBlinkTransitionsRemaining;
+    }
+
+    if (wifiBlinkTransitionsRemaining == 0) {
+        // A complete sequence always finishes with the LED off.
+        wifiBlinkActive = false;
+        wifiBlinkState = false;
+
+        shiftRegister->setPinState(wifiLedDiodePin, LOW);
         shiftRegister->write();
-        ledBlinkState = false;
-        wifiBlinkCounter = 0;
-    } else {
-        // WiFi is disconnected or connecting
-        if (wifiBlinkCounter < 3) {
-            blinkWiFiLedDiode();
-            wifiBlinkCounter++;
-        } else {
-            shiftRegister->setPinState(wifiLedDiodePin, LOW);
-            shiftRegister->write();
-            ledBlinkState = false;
-        }
     }
 }
 
 /**
- * Blinks the WiFi LED a specified number of times.
- * 
- * @param count Number of blink cycles.
+ * Returns whether the WiFi LED blink sequence is active.
  */
-void LEDController::blinkWiFiLedDiode(int count) {
-    static unsigned long lastBlinkTime = 0;
-    static bool blinkState = false;
-    static int blinkCounter = 0;
+bool LEDController::isWiFiBlinking() const {
+    return wifiBlinkActive;
+}
 
-    if (millis() - lastBlinkTime >= blinkInterval) {
-        blinkState = !blinkState;
-        shiftRegister->setPinState(wifiLedDiodePin, blinkState);
-        shiftRegister->write();
-        lastBlinkTime = millis();
+/**
+ * Cancels the WiFi LED blink sequence and turns the diode off.
+ */
+void LEDController::cancelWiFiBlink() {
+    wifiBlinkActive = false;
+    wifiBlinkState = false;
+    wifiBlinkTransitionsRemaining = 0;
 
-        if (blinkState) {
-            blinkCounter++;
-            if (blinkCounter >= count * 2) {
-                blinkCounter = 0;
-            }
-        }
-    }
+    shiftRegister->setPinState(wifiLedDiodePin, LOW);
+    shiftRegister->write();
 }
 
 /**
  * Sets the state of an individual LED diode.
- * 
- * @param ledDiode The LED diode to modify.
- * @param ledDiodeState The desired state (true for on, false for off).
  */
-void LEDController::setLedDiodeState(DiodeType ledDiode, bool ledDiodeState) {
-    uint8_t pin = getLedDiodePin(ledDiode);
+void LEDController::setLedDiodeState(
+    DiodeType ledDiode,
+    bool ledDiodeState
+) {
+    const uint8_t pin = getLedDiodePin(ledDiode);
+
     shiftRegister->setPinState(pin, ledDiodeState);
     shiftRegister->write();
 }
 
 /**
- * Toggles the state of an individual LED diode.
- * 
- * @param ledDiode The LED diode to toggle.
+ * Toggles an individual LED diode.
  */
 void LEDController::toggleLedDiodeState(DiodeType ledDiode) {
-    uint8_t pin = getLedDiodePin(ledDiode);
-    bool currentLedDiodeState = shiftRegister->getPinState(pin);
-    shiftRegister->setPinState(pin, !currentLedDiodeState);
+    const uint8_t pin = getLedDiodePin(ledDiode);
+    const bool currentState = shiftRegister->getPinState(pin);
+
+    shiftRegister->setPinState(pin, !currentState);
     shiftRegister->write();
 }
 
 /**
- * Sets the LED strip mode (color or off) based on the input mode.
- * 
- * @param ledStripMode Mode to set for the LED strip.
+ * Sets the LED strip mode.
  */
 void LEDController::setLedStripMode(uint8_t ledStripMode) {
     switch (ledStripMode) {
@@ -143,34 +155,49 @@ void LEDController::setLedStripMode(uint8_t ledStripMode) {
             ledcWrite(1, 0);
             ledcWrite(2, 0);
             break;
+
         case 1:
             ledcWrite(0, 0);
             ledcWrite(1, 255);
             ledcWrite(2, 0);
             break;
+
         case 2:
             ledcWrite(0, 0);
             ledcWrite(1, 0);
             ledcWrite(2, 0);
             break;
+
+        default:
+            DebugLogger::error("Unknown LED strip mode.");
+            break;
     }
 }
 
 /**
- * Retrieves the pin number associated with a given LED diode type.
- * 
- * @param diode The diode type for which to get the pin number.
- * @return The pin number associated with the specified diode type.
+ * Returns the configured pin for a diode type.
  */
-uint8_t LEDController::getLedDiodePin(DiodeType ledDiodePin) const {
-    switch(ledDiodePin) {
-        case DiodeType::Power: return powerLedDiodePin;
-        case DiodeType::WiFi: return wifiLedDiodePin;
-        case DiodeType::Pump: return pumpLedDiodePin;
-        case DiodeType::Vegetable: return vegetableLedDiodePin;
-        case DiodeType::Flower: return flowerLedDiodePin;
-        default: 
+uint8_t LEDController::getLedDiodePin(
+    DiodeType ledDiodePin
+) const {
+    switch (ledDiodePin) {
+        case DiodeType::Power:
+            return powerLedDiodePin;
+
+        case DiodeType::WiFi:
+            return wifiLedDiodePin;
+
+        case DiodeType::Pump:
+            return pumpLedDiodePin;
+
+        case DiodeType::Vegetable:
+            return vegetableLedDiodePin;
+
+        case DiodeType::Flower:
+            return flowerLedDiodePin;
+
+        default:
             DebugLogger::error("Unknown diode type.");
-            return 255; // Invalid pin number
+            return 255;
     }
 }

@@ -5,13 +5,13 @@
 #include <WiFi.h>
 
 /**
- * Manages WiFi connectivity, providing methods to connect, disconnect, and check connection status.
+ * Manages WiFi connectivity, providing methods to connect,
+ * disconnect and check connection status.
  */
 class WiFiManager {
 public:
     /**
-     * Constructor.
-     * Initializes a new WiFiManager instance for managing WiFi connections.
+     * Initializes a WiFiManager instance.
      *
      * @param ssid WiFi network SSID.
      * @param password WiFi network password.
@@ -19,43 +19,50 @@ public:
     WiFiManager(const char* ssid, const char* password);
 
     /**
-     * Initiates a non-blocking connection to the specified WiFi network.
+     * Starts a non-blocking WiFi connection attempt.
      */
     void connect();
 
     /**
-     * Monitors and manages the WiFi connection status, attempting reconnections if necessary.
-     * Call this method regularly, such as in the main application loop.
+     * Processes connection success, connection timeout and reconnection.
+     *
+     * This function is non-blocking and should be called regularly.
      */
     void handleConnectionResult();
 
     /**
-     * Disconnects from the currently connected WiFi network.
+     * Disconnects from WiFi and disables the WiFi radio.
      */
     void disconnect();
 
     /**
-     * Checks if the device is currently trying to connect to a WiFi network.
-     *
-     * @return True if attempting to connect, false otherwise.
+     * Checks whether a connection attempt is active.
      */
     bool isConnecting();
 
     /**
-     * Checks if the device is currently connected to a WiFi network.
-     *
-     * @return True if connected, false otherwise.
+     * Checks whether WiFi is currently connected.
      */
     bool isConnected();
 
+    // ★ Allows main.cpp to detect each new connection attempt once.
+    uint32_t getConnectAttempts() const;
+
 private:
-    const char* ssid; // SSID of the WiFi network
-    const char* password; // Password of the WiFi network
-    static bool connecting; // Flag indicating if a connection attempt is ongoing
-    static bool connected; // Flag indicating if the device is currently connected
-    unsigned long startTime; // Timestamp of the connection attempt start
-    unsigned long lastAttemptTime; // Timestamp of the last connection attempt
-    const unsigned long attemptInterval = 5000; // Interval between connection attempts (ms)
+    const char* ssid;
+    const char* password;
+
+    static bool connecting;
+    static bool connected;
+
+    unsigned long startTime;
+    unsigned long lastAttemptTime;
+
+    // ★ Monotonically increasing connection-attempt counter.
+    uint32_t connectAttempts;
+
+    // ★ Also used as the connection-attempt timeout.
+    const unsigned long attemptInterval = 5000;
 };
 
 #endif /* WiFiManager_h */

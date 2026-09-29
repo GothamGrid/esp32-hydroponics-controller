@@ -15,9 +15,12 @@
 #include "PumpController.hpp"
 #include "DebugLogger.hpp"
 
+// ★ Used to detect each connection attempt exactly once.
+uint32_t lastWiFiAttemptCount = 0;
+
 AppState appState;
 
-// Object initialization with configuration parameters.
+// ★ Object initialization with configuration parameters.
 WiFiManager wifiManager(WIFI_SSID, WIFI_PASS);
 ButtonManager allButtons[] = {
     ButtonManager(POWER_BUTTON_PIN), 
@@ -25,11 +28,13 @@ ButtonManager allButtons[] = {
     ButtonManager(VEGETABLE_BUTTON_PIN), 
     ButtonManager(FLOWER_BUTTON_PIN)
 };
+
 ShiftRegister shiftRegister(
     SHIFT_REGISTER_DATA_PIN, 
     SHIFT_REGISTER_CLOCK_PIN, 
     SHIFT_REGISTER_LATCH_PIN
 );
+
 LEDController ledController(
     &shiftRegister, 
     POWER_DIODE_PIN, 
@@ -42,14 +47,14 @@ LEDController ledController(
     GREEN_PWM_PIN
 );
 
-// Create an instance of the pump controller
+// ★ Create an instance of the pump controller
 PumpController pumpController(shiftRegister);
 
-// Button identifiers for readability.
+// ★ Button identifiers for readability.
 enum Button { Power, Pump, Vegetable, Flower };
 
 
-// Forward declaration for a function handling LED and LED strip logic.
+// ★ Forward declaration for a function handling LED and LED strip logic.
 void handleMultipleLedInteractions(
     bool& currentLedDiodeState, 
     bool& otherLedDiodeState, 
@@ -68,7 +73,10 @@ void setup() {
     for (auto& button : allButtons) {
         button.setup();
     }
-    ledController.setWiFiManager(wifiManager);
+
+    // ★ REMOVED: ledController.setWiFiManager(wifiManager);
+    // ★ LEDController no longer owns or observes WiFiManager.
+
     ledController.tuneMultipleLedAttributes(
         DiodeType::Power, false, 
         DiodeType::WiFi, false, 
@@ -78,7 +86,7 @@ void setup() {
     );
     ledController.setLedStripMode(STRIP_OFF);
     
-    // Initialize application states with default values
+    // ★ Initialize application states with default values
     appState.setPowerState(false);
     appState.setWiFiLedDiodeState(false);
     appState.setPumpLedDiodeState(false);
@@ -100,16 +108,25 @@ void handlePowerButtonClick() {
         if (!wifiManager.isConnecting() && !wifiManager.isConnected()) {
             appState.setPowerState(true);
             DebugLogger::info("System powered up.");
+
             wifiManager.connect();
+            // ★ CHANGED: power LED is on, but the WiFi LED is controlled by
+            // ★ the non-blocking blink sequence and connection state.
             ledController.tuneMultipleLedAttributes(
-                DiodeType::Power, true, 
-                DiodeType::WiFi, true
+                DiodeType::Power, true,
+                DiodeType::WiFi, false
             );
+            appState.setWiFiLedDiodeState(false);
+
         }
     } else {
         appState.setPowerState(false);
         DebugLogger::info("System powered down.");
+
+        // ★ Prevent an in-progress blink from continuing after power-off.
+        ledController.cancelWiFiBlink();
         wifiManager.disconnect();
+
         ledController.tuneMultipleLedAttributes(
             DiodeType::Power, false, 
             DiodeType::WiFi, false, 
@@ -117,6 +134,7 @@ void handlePowerButtonClick() {
             DiodeType::Vegetable, false, 
             DiodeType::Flower, false
         );
+
         ledController.setLedStripMode(STRIP_OFF);
         appState.setWiFiLedDiodeState(false);
         appState.setPumpLedDiodeState(false);
@@ -124,12 +142,12 @@ void handlePowerButtonClick() {
         appState.setFlowerLedDiodeState(false);
         appState.setLedStripState(false);
 
-         // Turn off the motor pump via PumpController
+         // ★ Turn off the motor pump via PumpController
         pumpController.setMotorPumpState(false);
-        // Store the state in AppState
+        // ★ Store the state in AppState
         appState.setMotorPumpState(false);
 
-        // Log the motor pump state
+        // ★ Log the motor pump state
         pumpController.getMotorPumpState();
 
     }
@@ -142,20 +160,20 @@ void handlePowerButtonClick() {
  */
 void handlePumpButtonClick() {
     if (appState.isPowerOn()) {
-        // Toggle the pump LED state
+        // ★ Toggle the pump LED state
         ledController.toggleLedDiodeState(DiodeType::Pump);
 
-        // Directly toggle the motor pump state
+        // ★ Directly toggle the motor pump state
         bool currentMotorPumpState = pumpController.getMotorPumpState();
         bool newMotorPumpState = !currentMotorPumpState;
 
-        // Update the motor pump state via PumpController
+        // ★ Update the motor pump state via PumpController
         pumpController.setMotorPumpState(newMotorPumpState);
 
-        // Store the state in AppState
+        // ★ Store the state in AppState
         appState.setMotorPumpState(newMotorPumpState);
 
-        // Log the motor pump state
+        // ★ Log the motor pump state
         DebugLogger::info("Pump button clicked. New motor pump state: " + String(newMotorPumpState ? "ON" : "OFF"));
     }
 }
@@ -244,20 +262,6 @@ void handleMultipleLedInteractions(
     }
 }
 
-
-/**
- * @brief Updates WiFi LED state based on current WiFi connection status.
- */
-void updateWiFiLedDiodeState() {
-    if (wifiManager.isConnecting()) {
-        ledController.blinkWiFiLedDiode(WIFI_BLINK_COUNT);
-    } else if (wifiManager.isConnected()) {
-        ledController.setLedDiodeState(DiodeType::WiFi, true);
-    } else {
-        ledController.setLedDiodeState(DiodeType::Pump, false);
-    }
-}
-
 /**
  * @brief Main loop of the application.
  * 
@@ -268,14 +272,75 @@ void loop() {
         button.update();
     }
 
-    if (allButtons[Power].isClicked()) handlePowerButtonClick();
-    if (allButtons[Pump].isClicked()) handlePumpButtonClick();
-    if (allButtons[Vegetable].isClicked()) handleVegetableButtonClick();
-    if (allButtons[Flower].isClicked()) handleFlowerButtonClick();
+    if (allButtons[Power].isClicked()) {
+        handlePowerButtonClick();
+    }
+
+    if (allButtons[Pump].isClicked()) {
+        handlePumpButtonClick();
+    }
+
+    if (allButtons[Vegetable].isClicked()) {
+        handleVegetableButtonClick();
+    }
+
+    if (allButtons[Flower].isClicked()) {
+        handleFlowerButtonClick();
+    }
+
     if (appState.isPowerOn()) {
         wifiManager.handleConnectionResult();
-        updateWiFiLedDiodeState();
+
+        /*
+         * Start the blink sequence exactly once whenever WiFiManager
+         * starts a new connection attempt.
+         */
+        const uint32_t attempts =
+            wifiManager.getConnectAttempts();
+
+        if (attempts != lastWiFiAttemptCount) {
+            lastWiFiAttemptCount = attempts;
+
+            ledController.startWiFiBlink(
+                WIFI_BLINK_COUNT
+            );
+        }
+
+        /*
+         * Do not overwrite the diode while the blink sequencer owns it.
+         * Once blinking finishes, show the actual connection state.
+         */
+        if (!ledController.isWiFiBlinking()) {
+            const bool wifiConnected =
+                wifiManager.isConnected();
+
+            ledController.setLedDiodeState(
+                DiodeType::WiFi,
+                wifiConnected
+            );
+
+            appState.setWiFiLedDiodeState(
+                wifiConnected
+            );
+        }
     }
+
+    // ★ Advances the non-blocking LED sequence.
+    ledController.update();
+
+    /*
+     * ★ OPTIONAL TEST HOOK:
+     *
+     * Enter lowercase `b` in the serial monitor to test three blinks
+     * independently of the router and connection speed.
+     */
+    if (Serial.available() > 0 &&
+        Serial.read() == 'b') {
+
+        ledController.startWiFiBlink(
+            WIFI_BLINK_COUNT
+        );
+    }
+
     delay(10);
 }
-
