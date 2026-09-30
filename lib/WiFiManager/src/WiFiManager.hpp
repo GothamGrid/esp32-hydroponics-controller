@@ -45,7 +45,9 @@ public:
      */
     bool isConnected();
 
-    // ★ Allows main.cpp to detect each new connection attempt once.
+    /**
+     * Returns the number of connection attempts started.
+     */
     uint32_t getConnectAttempts() const;
 
 private:
@@ -58,11 +60,11 @@ private:
     unsigned long startTime;
     unsigned long lastAttemptTime;
 
-    // ★ Monotonically increasing connection-attempt counter.
+    // Connection-attempt counter.
     uint32_t connectAttempts;
 
-    // ★ Also used as the connection-attempt timeout.
+    // Retry interval and connection-attempt timeout, in milliseconds.
     const unsigned long attemptInterval = 5000;
 };
 
-#endif /* WiFiManager_h */
+#endif // WiFiManager_h

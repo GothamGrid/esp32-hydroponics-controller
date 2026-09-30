@@ -24,13 +24,10 @@ LEDController::LEDController(
     bluePWMPin(bluePWMPin),
     redPWMPin(redPWMPin),
     greenPWMPin(greenPWMPin),
-
-    // ★ WiFi blink-sequencer initialization.
     wifiBlinkActive(false),
     wifiBlinkState(false),
     wifiBlinkTransitionsRemaining(0),
     lastWiFiBlinkMillis(0) {
-
     ledcSetup(0, 5000, 8);
     ledcSetup(1, 5000, 8);
     ledcSetup(2, 5000, 8);
@@ -54,10 +51,9 @@ void LEDController::startWiFiBlink(uint8_t count) {
     wifiBlinkActive = true;
     wifiBlinkState = true;
 
-    // ★ The first ON state is applied immediately. Every remaining state
-    // ★ change is performed later by update().
-    wifiBlinkTransitionsRemaining =
-        static_cast<uint16_t>(count) * 2U - 1U;
+    // The first ON state is applied immediately. Remaining state changes
+    // are performed later by update().
+    wifiBlinkTransitionsRemaining = static_cast<uint16_t>(count) * 2U - 1U;
 
     lastWiFiBlinkMillis = millis();
 
@@ -82,10 +78,7 @@ void LEDController::update() {
     lastWiFiBlinkMillis = currentTime;
     wifiBlinkState = !wifiBlinkState;
 
-    shiftRegister->setPinState(
-        wifiLedDiodePin,
-        wifiBlinkState ? HIGH : LOW
-    );
+    shiftRegister->setPinState(wifiLedDiodePin, wifiBlinkState ? HIGH : LOW);
     shiftRegister->write();
 
     if (wifiBlinkTransitionsRemaining > 0) {
@@ -124,10 +117,7 @@ void LEDController::cancelWiFiBlink() {
 /**
  * Sets the state of an individual LED diode.
  */
-void LEDController::setLedDiodeState(
-    DiodeType ledDiode,
-    bool ledDiodeState
-) {
+void LEDController::setLedDiodeState(DiodeType ledDiode, bool ledDiodeState) {
     const uint8_t pin = getLedDiodePin(ledDiode);
 
     shiftRegister->setPinState(pin, ledDiodeState);
@@ -177,9 +167,7 @@ void LEDController::setLedStripMode(uint8_t ledStripMode) {
 /**
  * Returns the configured pin for a diode type.
  */
-uint8_t LEDController::getLedDiodePin(
-    DiodeType ledDiodePin
-) const {
+uint8_t LEDController::getLedDiodePin(DiodeType ledDiodePin) const {
     switch (ledDiodePin) {
         case DiodeType::Power:
             return powerLedDiodePin;

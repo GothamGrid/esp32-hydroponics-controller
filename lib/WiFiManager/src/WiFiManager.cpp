@@ -1,7 +1,7 @@
 #include "WiFiManager.hpp"
 #include "DebugLogger.hpp"
 
-// Static member initialization
+// Static member initialization.
 bool WiFiManager::connected = false;
 bool WiFiManager::connecting = false;
 
@@ -16,7 +16,7 @@ WiFiManager::WiFiManager(const char* ssid, const char* password)
       password(password),
       startTime(0),
       lastAttemptTime(0),
-      connectAttempts(0) { // ★ ADDED
+      connectAttempts(0) {
 }
 
 /**
@@ -27,7 +27,7 @@ void WiFiManager::connect() {
         return;
     }
 
-    // * WiFi may have been disabled by disconnect().
+    // WiFi may have been disabled by disconnect().
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
@@ -36,7 +36,7 @@ void WiFiManager::connect() {
     startTime = millis();
     lastAttemptTime = startTime;
 
-    // ★ Produces one edge for each real connection attempt.
+    // Records each connection attempt for external observers.
     ++connectAttempts;
 
     DebugLogger::info("Attempting to connect to WiFi...");
@@ -49,7 +49,6 @@ void WiFiManager::handleConnectionResult() {
     const unsigned long currentTime = millis();
     const wl_status_t status = WiFi.status();
 
-    // ★ Successful connection handling.
     if (status == WL_CONNECTED) {
         if (!connected) {
             connected = true;
@@ -57,15 +56,13 @@ void WiFiManager::handleConnectionResult() {
 
             DebugLogger::info("Successfully connected to WiFi.");
             DebugLogger::info("SSID: " + String(WiFi.SSID()));
-            DebugLogger::info(
-                "IP Address: " + WiFi.localIP().toString()
-            );
+            DebugLogger::info("IP Address: " + WiFi.localIP().toString());
         }
 
         return;
     }
 
-    // ★ The underlying WiFi status says we are no longer connected.
+    // Handle the loss of an established connection.
     if (connected) {
         connected = false;
         connecting = false;
@@ -74,13 +71,9 @@ void WiFiManager::handleConnectionResult() {
         DebugLogger::info("WiFi connection lost.");
     }
 
-    // ★ Terminate an attempt that has exceeded the timeout.
-    if (connecting &&
-        currentTime - startTime >= attemptInterval) {
-
-        DebugLogger::info(
-            "WiFi connection attempt timed out."
-        );
+    // Terminate an attempt that has exceeded the timeout.
+    if (connecting && currentTime - startTime >= attemptInterval) {
+        DebugLogger::info("WiFi connection attempt timed out.");
 
         WiFi.disconnect();
         connecting = false;
@@ -90,10 +83,8 @@ void WiFiManager::handleConnectionResult() {
         return;
     }
 
-    // ★ Wait before starting the next attempt.
-    if (!connecting &&
-        currentTime - lastAttemptTime >= attemptInterval) {
-
+    // Wait before starting the next attempt.
+    if (!connecting && currentTime - lastAttemptTime >= attemptInterval) {
         DebugLogger::info("Retrying WiFi connection...");
         connect();
     }

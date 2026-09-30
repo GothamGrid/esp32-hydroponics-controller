@@ -4,7 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.2] - 2026-09-29
+### Added
+- **LEDController**: Added non-blocking WiFi blink sequencing, status reporting, and cancellation.
+- **WiFiManager**: Added connection-attempt tracking.
+- **PlatformIO**: Added centralized serial ports and debug source-path settings.
+- **README**: Added USB and ESP-Prog workflows with explicit environment selection.
+
+### Changed
+- **WiFiManager**: Improved connection, timeout, disconnection, and reconnection handling.
+- **LEDController**: Separated WiFi connection management from LED control.
+- **Code Cleanup**: Standardized comments and documentation in the main application, LED controller, and WiFi manager.
+- **PlatformIO**: Updated configuration to use centralized port and path variables.
+- **README**: Updated `Config.hpp`, credential names, GPIO assignments, and hardware guidance.
+- **README**: Distinguished implemented functionality from planned web access and MCU migration.
+
+### Removed
+- **Code Cleanup**: Removed temporary markers, obsolete comments, and unused code.
+- **LEDController**: Removed obsolete WiFi-management dependencies and declarations.
+- **README**: Removed unsupported feature claims and speculative dependency examples.
+
+### Fixed
+- **LEDController**: Corrected incomplete WiFi LED blink sequences.
+- **README**: Corrected outdated configuration names, pins, and commands without environment selection.
 
 ## [1.0.1] - 2024-05-18
 ### Added

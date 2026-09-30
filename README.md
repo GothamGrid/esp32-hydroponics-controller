@@ -1,126 +1,190 @@
 # ESP32 Hydroponics Controller
 
-The ESP32 Hydroponics Controller is an advanced system designed to automate and optimize hydroponic plant growth using an ESP32 microcontroller. With WiFi and Bluetooth connectivity, this project enables remote control and monitoring of lighting and water pump schedules, ensuring optimal growth conditions and efficient water usage.
+The ESP32 Hydroponics Controller controls lighting and a water pump in a hydroponic setup using an ESP32 microcontroller. The current firmware supports physical button controls, LED indicators, LED strip modes, pump control, and WiFi connection management.
+
+Remote control through a web interface is planned but is not yet implemented.
 
 ## Features
 
-- **Intelligent Lighting Control**: Automate and fine-tune lighting schedules to simulate natural day/night cycles, promoting healthy plant growth and development. Remotely adjust light intensity and duration to cater to the specific needs of different plant species.
+- **Lighting Control**: Select vegetable and flower LED strip modes using physical buttons, and manage individual status indicators.
+- **Water Pump Management**: Control pump operation using a physical button, with pump state managed through `PumpController` and `AppState`.
+- **WiFi Connectivity**: Manage connection attempts, timeouts, connection loss, and reconnection without blocking the main loop.
+- **WiFi Status Indication**: Display WiFi activity using complete, non-blocking LED blink sequences.
+- **Modular Design**: Dedicated components handle buttons, LEDs, pump operation, WiFi, shift-register outputs, application state, and logging.
+- **Debug Logging**: View diagnostic messages through the serial monitor, with optional ESP-Prog hardware debugging.
 
-- **Precise Water Pump Management**: Efficiently manage water circulation schedules to ensure plants receive the optimal amount of water and nutrients at the right intervals. Remotely control and monitor pump operation to maintain ideal moisture levels and prevent over or under-watering.
-
-- **Wireless Connectivity**: Leverage the power of WiFi and Bluetooth to control and monitor your hydroponic system remotely. Access real-time data, adjust settings, and receive alerts from anywhere using a user-friendly web interface or mobile app.
-
-- **Scalable and Customizable**: Designed to be modular and adaptable to various hydroponic setups, from small-scale indoor systems to large commercial operations. Easily expand and customize the controller to accommodate additional sensors, actuators, and features as your needs evolve.
-
-- **Data Logging and Analytics**: Record and analyze crucial growth parameters such as temperature, humidity, pH levels, and nutrient concentrations. Gain valuable insights into your plants' health and make data-driven decisions to optimize your hydroponic system's performance.
+Automatic lighting and pump schedules, Bluetooth control, sensor measurements, analytics, alerts, and web/mobile control are not documented as implemented features.
 
 ## Getting Started
 
 ### Prerequisites
 
-To build and run the ESP32 Hydroponics Controller, you will need:
+To build and run the current configuration, you will need:
 
-- ESP32 Development Board
-- Relay modules for controlling lighting and water pumps
-- Water pump suitable for your hydroponic setup
-- LED grow lights
-- Arduino IDE or PlatformIO with VSCode
+- ESP32 development board compatible with the `esp32dev` PlatformIO configuration
+- Physical buttons, status LEDs, and a shift register
+- LED strip with suitable driver circuitry
+- Water pump with suitable switching/driver circuitry
+- External 12 V DC power supply
+- USB cable for uploads and serial monitoring
+- PlatformIO CLI or PlatformIO with VS Code
+- Optional ESP-Prog for JTAG uploads and hardware debugging
+
+The current board configuration and GPIO assignments target a classic ESP32. The planned ESP32-C3-MINI-1 migration requires different board settings and a review of GPIO assignments and JTAG connections. Do not reuse this configuration unchanged for that module.
+
+The system power budget is **12 V DC, 2 A (24 W total)**. Keep connected loads and power-conversion circuitry within that budget. Do not power the pump or LED strip directly from GPIO or shift-register outputs; use suitable driver circuitry.
+
+Keep mains-powered components external to the controller enclosure. Use splash-resistant enclosures and protect connections from water exposure.
 
 ### Installation
 
-1. Clone the repository to your local machine: [REPOSITORY](https://github.com/GothamGrid/esp32-hydroponics-controller.git)
+1. Clone the [repository](https://github.com/GothamGrid/esp32-hydroponics-controller.git):
 
-2. Open the project with your preferred IDE (Arduino IDE or PlatformIO with VSCode).
+   ```bash
+   git clone https://github.com/GothamGrid/esp32-hydroponics-controller.git
+   cd esp32-hydroponics-controller
+   ```
 
-3. Before compiling and uploading the code to your ESP32, you need to configure the GPIO pins according to your specific hardware setup. These configurations are crucial for the proper functioning of your hydroponics controller, including managing lighting, water pumps, and sensor data.
+2. Open the project directory in VS Code with PlatformIO, or use the PlatformIO CLI from that directory.
 
-Create or edit the Config.h file in the src directory of your project, and define your GPIO pin assignments and other necessary configurations there. Here is an example configuration with pin assignments:
+3. Edit the existing `Config.hpp` to match your hardware wiring. Keep it in the location used by the project's includes. The following example matches the supplied pin assignments:
 
-```cpp
-#ifndef CONFIG_H
-#define CONFIG_H
+   ```cpp
+   #ifndef CONFIG_HPP
+   #define CONFIG_HPP
 
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
+   // Use only one WiFi credential source; see the guidance below.
+   #define WIFI_SSID "your_wifi_ssid"
+   #define WIFI_PASS "your_wifi_password"
 
-// GPIO pin assignments
-#define POWER_BUTTON_PIN 23
-#define PUMP_BUTTON_PIN 22
-#define VEGETABLE_BUTTON_PIN 17
-#define FLOWER_BUTTON_PIN 16
+   // Physical button GPIOs.
+   #define POWER_BUTTON_PIN 21
+   #define PUMP_BUTTON_PIN 22
+   #define VEGETABLE_BUTTON_PIN 17
+   #define FLOWER_BUTTON_PIN 16
 
-#define SHIFT_REGISTER_DATA_PIN 14
-#define SHIFT_REGISTER_CLOCK_PIN 13
-#define SHIFT_REGISTER_LATCH_PIN 12
+   // Shift-register interface GPIOs.
+   #define SHIFT_REGISTER_DATA_PIN 18
+   #define SHIFT_REGISTER_CLOCK_PIN 23
+   #define SHIFT_REGISTER_LATCH_PIN 19
 
-#define POWER_DIODE_PIN 0
-#define WIFI_DIODE_PIN 1
-#define PUMP_MOTOR_PIN 2
-#define PUMP_DIODE_PIN 3
-#define VEGETABLE_DIODE_PIN 4
-#define FLOWER_DIODE_PIN 5
+   // Shift-register output indices, not ESP32 GPIO numbers.
+   #define POWER_DIODE_PIN 0
+   #define WIFI_DIODE_PIN 1
+   #define PUMP_MOTOR_PIN 2
+   #define PUMP_DIODE_PIN 3
+   #define VEGETABLE_DIODE_PIN 4
+   #define FLOWER_DIODE_PIN 5
 
-#define BLUE_PWM_PIN 25
-#define RED_PWM_PIN 26
-#define GREEN_PWM_PIN 27
+   // LED strip PWM GPIOs.
+   #define BLUE_PWM_PIN 25
+   #define RED_PWM_PIN 26
+   #define GREEN_PWM_PIN 27
 
-#define WIFI_BLINK_COUNT 3
-#define LOOP_DELAY 10
-#define VEGETABLE_ON 0
-#define FLOWER_ON 1
-#define STRIP_OFF 2
+   #define WIFI_BLINK_COUNT 3
+   #define LOOP_DELAY 10
+   #define VEGETABLE_ON 0
+   #define FLOWER_ON 1
+   #define STRIP_OFF 2
 
-// Add any other configuration variables here
+   // Current classic ESP32 external JTAG GPIOs.
+   #define JTAG_TMS_PIN 14
+   #define JTAG_TDI_PIN 12
+   #define JTAG_TCK_PIN 13
+   #define JTAG_TDO_PIN 15
 
-#endif // CONFIG_H
+   #endif // CONFIG_HPP
+   ```
 
-```
+   Verify all assignments against your wiring. Change hardware pin assignments in `Config.hpp`, not throughout `main.cpp`. The JTAG macros document wiring; they do not configure PlatformIO's debug transport.
 
-Make sure to replace the pin numbers with those that correspond to your actual hardware setup. Also, ensure you replace your_wifi_ssid and your_wifi_password with your actual WiFi credentials.
+   **WiFi credentials:** The supplied `Config.hpp` defines `WIFI_SSID` and `WIFI_PASS`, while `platformio.ini` also defines them through environment-variable build flags. Choose one source:
 
-To keep your WiFi credentials and pin configurations secure, make sure the Config.h file is listed in your .gitignore file to prevent it from being committed to your repository:
+   - For header-based credentials, keep the definitions in `Config.hpp` and remove the corresponding WiFi build flags.
+   - For environment-based credentials, remove the definitions from `Config.hpp`, set `WIFI_SSID` and `WIFI_PASS` in PlatformIO's environment, and verify that the build flags produce valid C++ string literals.
 
-```
-# Ignore local configuration
-src/Config.h
-```
+   Do not commit actual credentials. If the header contains credentials, add its actual repository-relative path to `.gitignore`. Ignoring a file does not untrack it if it is already committed. Replace any credentials previously exposed in Git history.
 
-By following these steps, you ensure that your ESP32 Hydroponics Controller is correctly configured for your specific setup, enhancing its functionality and reliability.
+4. Connect the board to your computer using USB. List serial devices:
 
-4. Connect the ESP32 board to your computer using a USB cable.
+   ```bash
+   pio device list
+   ```
 
-5. Open the `platformio.ini` file and install the necessary libraries by adding them under the lib_deps section. For example:
+   Update `[ports]` in `platformio.ini` to match your computer:
 
-```
-lib_deps =
-    WiFiManager
-    PubSubClient
-    Adafruit_Sensor
-    DHT
-```
+   ```ini
+   [ports]
+   board_serial = /dev/cu.usbserial-1410
+   probe_serial = /dev/cu.usbserial-14101
+   ```
 
-6. Check the configuration of the GPIO pins in the code according to your hardware setup. If necessary, modify the pin assignments in the `src/main.cpp` file to match your connections.
+   These example paths come from the existing macOS setup. Device names may change with the computer, operating system, USB port, or hub. `board_serial` identifies the board's USB serial interface; `probe_serial` identifies the ESP-Prog UART monitoring interface. JTAG uses the probe's USB debug interface, not this UART path.
 
-7. Upload the sketch to your ESP32 board by clicking the "Upload" button in your IDE or running the following command in the terminal:
+5. Use the dependencies actually required by the project. Do not add unrelated libraries from generic examples. The project's `WiFiManager.hpp` and `WiFiManager.cpp` do not, by name alone, imply a dependency on the external `WiFiManager` library.
 
-```
-pio run -t upload
-```
+6. Select the appropriate PlatformIO environment:
 
-However, if you want to first clean the project, then build it, and finally upload and monitor the INPUT & OUTPUT stream with the baud rate option set to 115200 and the text transformation filter that forwards all data unchanged, run the following command:
+   - `esp32dev`: Board USB uploads and serial monitoring.
+   - `esp32-jtag`: ESP-Prog JTAG uploads and hardware debugging, with UART monitoring when separately wired.
 
-```
-pio run -t clean && pio run && pio run -t upload && pio device monitor -b 115200 -f direct
-```
+   In VS Code, use the environment selector or environment-specific Project Tasks. In CLI commands, use `-e`. This is **environment selection**, not switching Git branches. The option applies only to its individual command. Commands without an explicit environment use the configured default, currently `esp32dev`.
 
-This will ensure a clean and unobstructed output in the terminal.
+7. Upload and monitor the firmware.
 
-8. Once the upload is complete, the ESP32 Hydroponics Controller will start running, and you can interact with it using the provided web interface or mobile app.
+   **Board USB upload:**
+
+   ```bash
+   pio run -e esp32dev -t upload
+   ```
+
+   **Board USB: clean, build, upload, and monitor:**
+
+   ```bash
+   pio run -e esp32dev -t clean && pio run -e esp32dev && pio run -e esp32dev -t upload && pio device monitor -e esp32dev -b 115200 -f direct
+   ```
+
+   **ESP-Prog upload:**
+
+   ```bash
+   pio run -e esp32-jtag -t upload
+   ```
+
+   **ESP-Prog: clean, build, upload, and monitor:**
+
+   ```bash
+   pio run -e esp32-jtag -t clean && pio run -e esp32-jtag && pio run -e esp32-jtag -t upload && pio device monitor -e esp32-jtag -b 115200 -f direct
+   ```
+
+   Repeat `-e` for every command in a chain. `&&` proceeds only when the preceding command succeeds. Cleaning is optional and forces a fresh rebuild. Upload also checks/builds the firmware as needed. The monitor uses 115200 baud and the `direct` filter; this does not guarantee noise-free output.
+
+   **Switching to ESP-Prog:** Stop monitoring/debugging and power down before changing wiring. Connect the correctly oriented JTAG ribbon, follow the board/probe power requirements, and avoid conflicting supplies. For this classic ESP32 setup, keep GPIO 12–15 free of external loads while the JTAG ribbon is connected.
+
+   ESP-Prog serial monitoring requires separate UART wiring to the board. The JTAG ribbon alone does not carry serial logs.
+
+   Start hardware debugging separately:
+
+   ```bash
+   pio debug -e esp32-jtag
+   ```
+
+   Alternatively, start the corresponding PlatformIO debug configuration in VS Code.
+
+   **Switching back to board USB:** Stop monitoring/debugging and power down. Disconnect the JTAG ribbon if those pins are needed by peripherals, restore normal wiring, connect board USB, and select `esp32dev`. Selecting an environment changes tool configuration, not physical wiring.
+
+   **Debug source paths:** `[debug_paths]` centralizes the source mappings used by `debug_extra_cmds`. Build paths come from library debug information; local paths must point to matching sources on your computer. These mappings do not download sources. Review them when your installation, framework, or toolchain changes.
+
+8. After uploading, use the physical buttons to control power, pump operation, and lighting modes. Inspect diagnostic logs through the serial monitor.
+
+   Web and mobile control are not yet available. The planned web implementation will use `SystemController` as a common command layer for buttons and web requests, with `WebServerManager` handling web access. Both input paths should keep hardware outputs and `AppState` consistent.
+
+   For oscilloscope measurements, connect ground clips only to circuit 0 V/GND. Use an appropriately rated differential probe for non-ground-referenced measurements.
 
 ### Contributing
 
-We welcome contributions from the community! If you have any suggestions, bug reports, or would like to add new features, please feel free to submit a pull request or open an issue on the GitHub repository.
-When contributing, please adhere to the existing code style and conventions, and provide clear and concise commit messages. If you are proposing major changes, it's recommended to discuss them first by opening an issue to ensure alignment with the project's goals.
+Contributions, suggestions, and bug reports are welcome through the [GitHub repository](https://github.com/GothamGrid/esp32-hydroponics-controller.git).
+
+Follow the existing code style and conventions, and provide clear, concise commit messages. Discuss major changes in an issue before implementation. Keep documentation aligned with implemented behavior and clearly label planned functionality.
 
 ## License
 
